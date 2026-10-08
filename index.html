@@ -31,11 +31,11 @@ input[type=range]{accent-color:var(--a);width:120px}
 <h1>HYBRID ACS <span>v7.21</span></h1>
 <p class="s">Flat JS port of Hybrid.hs + quaternion memory bank model. Everything runs in this one file.</p>
 <div class="ctl"><button id="run">Pause</button><button id="rst">Reset</button>
-<label class="n">speed <input id="spd" type="range" min="1" max="16" value="4"></label></div>
+<label class="n"><input id="ent" type="checkbox" checked> entropy</label><label class="n">speed <input id="spd" type="range" min="1" max="16" value="4"></label></div>
 <div class="row">
 <div class="card"><h2>Attitude (solid) vs target (dim)</h2><canvas id="c3" height="240"></canvas>
 <div class="kv"><div>time<b id="t">0</b></div><div>regime<b id="reg">-</b></div><div>error<b id="e">-</b></div>
-<div>|ω| rad/s<b id="w">-</b></div><div>E/P ratio<b id="r">-</b></div><div>kd<b id="kd">-</b></div></div>
+<div>|ω| rad/s<b id="w">-</b></div><div>E/P ratio<b id="r">-</b></div><div>kd<b id="kd">-</b></div><div>disturbance N·m<b id="db">-</b></div><div>gyro bias mrad/s<b id="bi">-</b></div></div>
 <div id="sum"></div></div>
 <div class="card"><h2>Pointing error (log scale, deg)</h2><canvas id="cp" height="240"></canvas>
 <div class="n">Dashed lines mark regime thresholds: 86°, 29°, 5.7°.</div></div>
@@ -60,10 +60,11 @@ class Bank{constructor(){this.b=new Float32Array(4096);this.head=0;this.n=0}
  add(q){this.b.set(q,this.head*4);this.head=(this.head+1)%1024;this.n=Math.min(this.n+1,1024)}
  read(i){return Array.from(this.b.slice(i*4,i*4+4))}}
 let S,bank,hist,step,peakT,run=true;
-function reset(){S={q:nrm([.5,.5,.5,.5]),w:[0,0,0],t:0};bank=new Bank();hist=[];step=0;peakT=0;
+function reset(){const on=document.getElementById("ent").checked;S={on,q:on?nrm([Math.random()*2-1,...rv(1)]):nrm([.5,.5,.5,.5]),w:on?rv(.3):[0,0,0],t:0,b:[0,0,0],d:[0,0,0]};bank=new Bank();hist=[];step=0;peakT=0;
  S.e0=vn(errVec(TG,S.q));document.getElementById("sum").textContent="";run=true;document.getElementById("run").textContent="Pause"}
-function tick(){const aq=nrm(Qm(S.q,expM(rv(.001)))),aw=S.w.map((v,i)=>v+rv(.0001)[i]);
- const c=control(aq,aw),[tx,ty,tz]=c.tq,[wx,wy,wz]=S.w;
+function tick(){if(S.on){S.b=S.b.map(v=>v+(Math.random()*2-1)*2e-5);S.d=S.d.map(v=>v*.99+(Math.random()*2-1)*.005)}
+ const aq=nrm(Qm(S.q,expM(rv(.001)))),aw=S.w.map((v,i)=>v+S.b[i]+rv(.0001)[i]);
+ const c=control(aq,aw),[tx,ty,tz]=c.tq.map((v,i)=>v+S.d[i]),[wx,wy,wz]=S.w;
  const a=[(tx-(I[2]-I[1])*wy*wz)/I[0],(ty-(I[0]-I[2])*wz*wx)/I[1],(tz-(I[1]-I[0])*wx*wy)/I[2]];
  S.q=nrm(Qm(S.q,expM(S.w.map(v=>v*DT))));S.w=S.w.map((v,i)=>v+DT*a[i]);S.t+=DT;step++;
  peakT=Math.max(peakT,vn(c.tq));S.c=c;if(step%2==0)bank.add(S.q);
@@ -97,7 +98,7 @@ const $=id=>document.getElementById(id),c3=$("c3"),cp=$("cp"),cb=$("cb");
 function frame(){if(run&&S.t<25-1e-9)for(let i=0;i<+$("spd").value*4&&S.t<25-1e-9;i++)tick();
  if(S.t>=25-1e-9&&!$("sum").textContent){const f=S.e*180/Math.PI;$("sum").textContent=`DONE · final ${f.toFixed(4)}° · peak torque ${peakT.toFixed(1)} N·m · convergence ${(100*(1-S.e/S.e0)).toFixed(2)}%`}
  const c=S.c||{reg:"-",r:0,kd:0};$("t").textContent=S.t.toFixed(2)+"s";$("reg").textContent=c.reg;$("e").textContent=S.e===undefined?(S.e0*180/Math.PI).toFixed(1)+"°":(S.e*180/Math.PI).toFixed(S.e<.01?4:2)+"°";
- $("w").textContent=vn(S.w).toFixed(3);$("r").textContent=c.r.toFixed(2);$("kd").textContent=c.kd.toFixed(1);
+ $("w").textContent=vn(S.w).toFixed(3);$("r").textContent=c.r.toFixed(2);$("kd").textContent=c.kd.toFixed(1);$("db").textContent=vn(S.d).toFixed(3);$("bi").textContent=(vn(S.b)*1000).toFixed(2);
  draw3();drawP();drawB();requestAnimationFrame(frame)}
 $("run").onclick=()=>{run=!run;$("run").textContent=run?"Pause":"Run"};
 $("rst").onclick=reset;reset();frame();
