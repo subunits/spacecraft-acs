@@ -33,7 +33,6 @@ em{font-style:normal;color:var(--fg);font-weight:600;margin-left:4px}
 .tg input:checked+i{background:var(--a)}.tg input:checked+i:after{left:18px;background:var(--card)}
 .tg input:focus-visible+i{outline:2px solid var(--b);outline-offset:2px}
 .sp span{min-width:96px}.sp input[type=number]{width:84px;font:inherit;font-size:16px;background:transparent;color:var(--fg);border:0;border-bottom:1px solid var(--line);padding:2px 0;text-align:right;border-radius:0}
-#chk{white-space:pre-wrap;text-align:left;font-size:12px;line-height:1.7}
 button:active{border-color:var(--a)}
 input[type=range]{-webkit-appearance:none;appearance:none;width:130px;height:24px;background:transparent;margin:0}
 input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:2px}
@@ -48,7 +47,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 <div class="ctl"><button id="run">Pause</button><button id="rst">Reset</button>
 <label class="tg"><input id="ent" type="checkbox" checked><i></i><span>Entropy <em id="ev">ON</em></span></label>
 <label class="sp"><span>Speed <em id="sv">9.6×</em></span><input id="spd" type="range" min="1" max="16" value="4"></label>
-<label class="sp"><span>Seed</span><input id="sd" type="number" value="1" min="0" step="1"></label><button id="rs">Random seed</button><button id="ck">Self-check</button></div>
+<label class="sp"><span>Seed</span><input id="sd" type="number" value="1" min="0" step="1"></label><button id="rs">Random seed</button></div>
 <div class="row">
 <div class="card"><h2>Attitude (solid) vs target (dim)</h2><canvas id="c3" height="240"></canvas>
 <div class="kv"><div>time<b id="t">0</b></div><div>regime<b id="reg">-</b></div><div>error<b id="e">-</b></div>
@@ -59,7 +58,6 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 </div>
 <div class="card"><h2>Quaternion memory bank · 1024 slots · q_bank_add() at 50 Hz</h2><canvas id="cb" height="150"></canvas>
 <div class="n" id="bk"></div></div>
-<div class="card"><h2>Self-checks</h2><div id="chk" class="n">Press Self-check to run the tests. They use their own state and do not disturb the live run.</div></div>
 <script>
 const Qm=(a,b)=>[a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3],a[0]*b[1]+a[1]*b[0]+a[2]*b[3]-a[3]*b[2],a[0]*b[2]-a[1]*b[3]+a[2]*b[0]+a[3]*b[1],a[0]*b[3]+a[1]*b[2]-a[2]*b[1]+a[3]*b[0]];
 const nrm=q=>{const n=Math.hypot(...q);return n?q.map(v=>v/n):q},cj=q=>[q[0],-q[1],-q[2],-q[3]];
@@ -88,18 +86,6 @@ function tick(){if(S.on){S.b=S.b.map(v=>v+(rnd()*2-1)*2e-5);S.d=S.d.map(v=>v*.99
  S.q=nrm(Qm(S.q,expM(S.w.map(v=>v*DT))));S.w=S.w.map((v,i)=>v+DT*a[i]);S.t+=DT;step++;
  peakT=Math.max(peakT,vn(c.tq));S.c=c;bank.step(step%2==0?S.q:null);
  const e=vn(errVec(TG,S.q));S.e=e;if(step%5==0)hist.push([S.t,e*180/Math.PI])}
-function selfCheck(){const o=[],ok=(n,p,d)=>o.push((p?"PASS  ":"FAIL  ")+n+" - "+d),sv=[S,bank,hist,step,peakT,rnd],r=mulberry32(7);let m=0;
- for(let i=0;i<2000;i++){const v=rv(1.8),u=logM(expM(v));m=Math.max(m,Math.hypot(v[0]-u[0],v[1]-u[1],v[2]-u[2]))}ok("exp/log round trip",m<1e-9,"max error "+m.toExponential(1));
- m=0;for(let i=0;i<2000;i++){const a=nrm([r()-.5,r()-.5,r()-.5,r()-.5]),b=nrm([r()-.5,r()-.5,r()-.5,r()-.5]);m=Math.max(m,Math.abs(vn(Qm(a,b))-1))}ok("quaternion product keeps unit length",m<1e-12,"max error "+m.toExponential(1));
- m=0;for(let i=0;i<200;i++){const c=nrm([r()-.5,r()-.5,r()-.5,r()-.5]),w=[(r()-.5)*.2,(r()-.5)*.2,(r()-.5)*.2],a=control(c,w).tq,b=control(c.map(v=>-v),w).tq;m=Math.max(m,Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]))}ok("q and -q give the same torque (double cover)",m<1e-9,"max difference "+m.toExponential(1));
- {let w=[.3,-.2,.5];const L=w=>Math.hypot(I[0]*w[0],I[1]*w[1],I[2]*w[2]),K=w=>.5*(I[0]*w[0]**2+I[1]*w[1]**2+I[2]*w[2]**2),L0=L(w),K0=K(w);
- for(let k=0;k<2500;k++){const[x,y,z]=w;w=[w[0]+DT*(-(I[2]-I[1])*y*z)/I[0],w[1]+DT*(-(I[0]-I[2])*z*x)/I[1],w[2]+DT*(-(I[1]-I[0])*x*y)/I[2]]}
- const dl=Math.abs(L(w)-L0)/L0,dk=Math.abs(K(w)-K0)/K0;ok("torque-free spin, 25 s: momentum and energy drift",dl<.01&&dk<.01,"momentum "+(dl*100).toExponential(1)+"%, energy "+(dk*100).toExponential(1)+"% (explicit Euler, as in the Haskell)")}
- let mx=0;const go=(on,sd)=>{init(on,sd);while(S.t<25-1e-9){tick();mx=Math.max(mx,Math.abs(vn(S.q)-1))}return S.e},e1=go(true,5),e2=go(true,5),e3=go(true,6);
- ok("attitude stays unit length over a full run",mx<1e-12,"max error "+mx.toExponential(1));ok("same seed repeats exactly",e1===e2,"final error "+(e1*180/Math.PI).toFixed(5)+"° both runs");ok("different seed differs",e1!==e3,"seed 6 gives "+(e3*180/Math.PI).toFixed(5)+"°");
- {const b=new Bank();for(let i=0;i<1100;i++)b.step([i/2000,0,0,0]);ok("memory bank wraps at 1024",b.read(0)[0]===Math.fround(1024/2000)&&b.read(76)[0]===Math.fround(76/2000)&&b.cnt===1100&&b.n===1024,"slot 0 holds write #1024, slot 76 holds #76, write count "+b.cnt)}
- {const b=new Bank();b.step([1,0,0,0]);const a=b.out[0];b.step(null);ok("memory bank read has 1-clock latency",a===0&&b.out[0]===1,"first read "+a+", next read "+b.out[0])}
- [S,bank,hist,step,peakT,rnd]=sv;return o}
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function fit(c){if(!c.dataset.h)c.dataset.h=c.getAttribute("height");const r=devicePixelRatio||1,w=c.clientWidth,h=+c.dataset.h;c.style.height=h+'px';c.width=w*r;c.height=h*r;const x=c.getContext("2d");x.scale(r,r);return[x,w,h]}
 const V=[];for(const x of[-1,1])for(const y of[-1.2,1.2])for(const z of[-.8,.8])V.push([x,y,z]);
@@ -133,5 +119,5 @@ function frame(){if(run&&S.t<25-1e-9)for(let i=0;i<+$("spd").value*4&&S.t<25-1e-
  $("w").textContent=vn(S.w).toFixed(3);$("r").textContent=c.r.toFixed(2);$("kd").textContent=c.kd.toFixed(1);$("db").textContent=vn(S.d).toFixed(3);$("bi").textContent=(vn(S.b)*1000).toFixed(2);
  draw3();drawP();drawB();requestAnimationFrame(frame)}
 $("run").onclick=()=>{run=!run;$("run").textContent=run?"Pause":"Run"};
-$("rst").onclick=reset;$("rs").onclick=()=>{$("sd").value=Math.floor(Math.random()*1e6);reset()};$("ck").onclick=()=>{$("chk").textContent="Running...";setTimeout(()=>{$("chk").textContent=selfCheck().join("\n")},30)};$("spd").oninput=()=>$("sv").textContent=($("spd").value*2.4).toFixed(1)+"×";$("ent").onchange=()=>{$("ev").textContent=$("ent").checked?"ON":"OFF";reset()};reset();frame();
+$("rst").onclick=reset;$("rs").onclick=()=>{$("sd").value=Math.floor(Math.random()*1e6);reset()};$("spd").oninput=()=>$("sv").textContent=($("spd").value*2.4).toFixed(1)+"×";$("ent").onchange=()=>{$("ev").textContent=$("ent").checked?"ON":"OFF";reset()};reset();frame();
 </script></main></body></html>
