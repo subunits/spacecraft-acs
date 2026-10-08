@@ -18,6 +18,7 @@ h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)
 canvas{width:100%;max-width:100%;display:block}.card{min-width:0;overflow:hidden}
 .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 @media(max-width:640px){.row{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:420px){.kv{grid-template-columns:repeat(2,1fr)}main{padding:10px}.sp span{min-width:84px}}
 .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 10px;margin-top:8px}
 .kv div{font-size:11px;color:var(--mut)}.kv b{display:block;font-size:15px;color:var(--fg);font-weight:600}
 #reg{color:var(--a)}
@@ -100,7 +101,7 @@ function drawP(){const[x,w,h]=fit(cp),L=v=>Math.log10(Math.max(v,1e-4)),lo=-4,hi
  x.setLineDash([4,4]);x.strokeStyle=css("--a");for(const d of[85.9,28.6,5.73]){x.beginPath();x.moveTo(m,Y(d));x.lineTo(w-6,Y(d));x.stroke()}x.setLineDash([]);
  x.fillText("0s",m,h-2);x.fillText("25s",w-24,h-2);x.strokeStyle=css("--b");x.lineWidth=1.8;x.beginPath();
  hist.forEach(([t,e],i)=>i?x.lineTo(X(t),Y(e)):x.moveTo(X(t),Y(e)));x.stroke()}
-function drawB(){const[x,w,h]=fit(cb),cs=Math.min(w/64,h/16),cols=64;
+function drawB(){const W=cb.clientWidth||300;let cols=128;while(cols>16&&W/cols<8)cols/=2;const cs=W/cols;cb.dataset.h=Math.ceil(1024/cols*cs);const[x,w,h]=fit(cb);
  for(let i=0;i<1024;i++){const px=(i%cols)*cs,py=Math.floor(i/cols)*cs;
   if(i<bank.n){const q=bank.read(i),ang=2*Math.acos(Math.min(1,Math.abs(q[0])));x.globalAlpha=.2+.8*Math.min(1,ang/1.6);x.fillStyle=css("--b")}
   else{x.globalAlpha=1;x.fillStyle=css("--line")}
