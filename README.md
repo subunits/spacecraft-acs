@@ -14,6 +14,7 @@ A single-file, in-browser version of the Hybrid Spacecraft Attitude Control simu
 - **Pause / Reset** stop and restart the 25 s mission.
 - **Entropy** switches randomness on or off and restarts the run. When on, each run begins from a random attitude and spin, the gyro bias drifts slowly, and a small random disturbance torque acts on the spacecraft throughout. When off, every run starts from the same 120° offset with no disturbances.
 - **Speed** sets playback as a multiple of real time.
+- **Seed** fixes the random sequence, so the same seed always gives the same run. **Random seed** picks a new one.
 
 ## Layout
 
@@ -33,10 +34,10 @@ A JavaScript port of `Hybrid.hs` from [Space-Craft-Hybrid](https://github.com/su
 ## Differences from the Haskell
 
 - The entropy features (random starts, gyro drift, disturbance torque) are additions. They are not in `Hybrid.hs`. Turning entropy off reproduces the original fixed scenario.
-- The memory bank is a JavaScript model of the buffer in [quaternion-memory-hardware](https://github.com/subunits/quaternion-memory-hardware). It does not run the Verilog or C code, and it has no busy flag.
+- The memory bank follows the behavior of the Verilog controller in [quaternion-memory-hardware](https://github.com/subunits/quaternion-memory-hardware), checked in simulation: five 32-bit values per slot, 1024 slots with wrap-around, a registered read that lags one clock, and a write counter that counts every write. It does not run the Verilog or C code. The busy flag is left out because the controller's flag never asserts.
 - Position and velocity are omitted. Only attitude is simulated.
 - The 3D view is a wireframe box, not a spacecraft model.
-- Noise is not seeded, so runs differ.
+- The integrator is explicit Euler, as in the Haskell, so torque-free momentum and energy drift slightly (about 0.1% over 25 s).
 - With entropy off, the headline results match the compiled Haskell: a final error of about 1.13° and a peak torque of about 16.7 N·m from a 120° start. Sensor noise is random in both, so small figures vary from run to run.
 
 ## Related repositories
