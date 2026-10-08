@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hybrid ACS v7.21 · flat</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f4f1ea;--fg:#1d1b17;--mut:#6d675c;--card:#fffdf8;--line:#d8d2c4;--a:#c2570c;--b:#0b6e8a;--g:#2f7d32}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1117;--fg:#e6e1d4;--mut:#8b949e;--card:#151b23;--line:#2b333d;--a:#ffb454;--b:#59c2ff;--g:#7fd962}}
+:root[data-theme="dark"]{--bg:#0d1117;--fg:#e6e1d4;--mut:#8b949e;--card:#151b23;--line:#2b333d;--a:#ffb454;--b:#59c2ff;--g:#7fd962}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+main{max-width:920px;margin:0 auto;padding:16px}
+h1{font-size:18px;margin:0 0 2px;letter-spacing:.04em}h1 span{color:var(--a)}
+p.s{margin:0 0 14px;color:var(--mut);font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px;margin-bottom:12px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:0 0 6px;font-weight:600}
+canvas{width:100%;max-width:100%;display:block}.card{min-width:0;overflow:hidden}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media(max-width:640px){.row{grid-template-columns:minmax(0,1fr)}}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 10px;margin-top:8px}
+.kv div{font-size:11px;color:var(--mut)}.kv b{display:block;font-size:15px;color:var(--fg);font-weight:600}
+#reg{color:var(--a)}
+.ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+button{font:inherit;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:8px 14px;min-height:40px}
+button:active{border-color:var(--a)}
+input[type=range]{accent-color:var(--a);width:120px}
+#sum{font-size:12px;color:var(--g);min-height:18px;margin-top:6px}
+.n{font-size:11px;color:var(--mut)}
+</style></head><body><main>
+<h1>HYBRID ACS <span>v7.21</span></h1>
+<p class="s">Flat JS port of Hybrid.hs + quaternion memory bank model. Everything runs in this one file.</p>
+<div class="ctl"><button id="run">Pause</button><button id="rst">Reset</button>
+<label class="n">speed <input id="spd" type="range" min="1" max="16" value="4"></label></div>
+<div class="row">
+<div class="card"><h2>Attitude (solid) vs target (dim)</h2><canvas id="c3" height="240"></canvas>
+<div class="kv"><div>time<b id="t">0</b></div><div>regime<b id="reg">-</b></div><div>error<b id="e">-</b></div>
+<div>|ω| rad/s<b id="w">-</b></div><div>E/P ratio<b id="r">-</b></div><div>kd<b id="kd">-</b></div></div>
+<div id="sum"></div></div>
+<div class="card"><h2>Pointing error (log scale, deg)</h2><canvas id="cp" height="240"></canvas>
+<div class="n">Dashed lines mark regime thresholds: 86°, 29°, 5.7°.</div></div>
+</div>
+<div class="card"><h2>Quaternion memory bank · 1024 slots · q_bank_add() at 50 Hz</h2><canvas id="cb" height="150"></canvas>
+<div class="n" id="bk"></div></div>
+<script>
+const Qm=(a,b)=>[a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3],a[0]*b[1]+a[1]*b[0]+a[2]*b[3]-a[3]*b[2],a[0]*b[2]-a[1]*b[3]+a[2]*b[0]+a[3]*b[1],a[0]*b[3]+a[1]*b[2]-a[2]*b[1]+a[3]*b[0]];
+const nrm=q=>{const n=Math.hypot(...q);return n?q.map(v=>v/n):q},cj=q=>[q[0],-q[1],-q[2],-q[3]];
+const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),vn=v=>Math.hypot(...v);
+const expM=v=>{const th=vn(v),h=th/2,s=th<1e-8?.5:Math.sin(h)/th;return nrm([Math.cos(h),s*v[0],s*v[1],s*v[2]])};
+const logM=q=>{const[w,x,y,z]=q;if(Math.abs(w)>=1)return[0,0,0];const th=2*Math.acos(Math.max(-1,Math.min(1,w))),sh=Math.hypot(x,y,z),k=sh<1e-8?2:th/sh;return[k*x,k*y,k*z]};
+const rv=s=>[0,0,0].map(()=>(Math.random()*2-1)*s);
+const errVec=(d,c)=>{const dd=dot(d,c)<0?d.map(v=>-v):d;return logM(nrm(Qm(dd,cj(c))))};
+const I=[100,120,80],DT=.01,TG=[1,0,0,0];
+function control(c,w){const ev=errVec(TG,c),em=vn(ev),r=w.reduce((s,v)=>s+v*v,0)/Math.max(.01,em);
+ let[kp,kdb,reg]=em>1.5?[8,12,"ACQUISITION"]:em>.5?[6,9.5,"TRACKING"]:em>.1?[4.5,9,"SETTLING"]:[8,24,"FINE-POINT"];
+ const m=em<.1?2:r>.08?5+r*4:r>.01?3.5+r*2.5:4,kd=kdb*m;
+ let tq=ev.map((e,i)=>kp*e-kd*w[i]);const tm=vn(tq);if(tm>45)tq=tq.map(v=>v*45/tm);
+ return{tq,reg,r,kd}}
+class Bank{constructor(){this.b=new Float32Array(4096);this.head=0;this.n=0}
+ add(q){this.b.set(q,this.head*4);this.head=(this.head+1)%1024;this.n=Math.min(this.n+1,1024)}
+ read(i){return Array.from(this.b.slice(i*4,i*4+4))}}
+let S,bank,hist,step,peakT,run=true;
+function reset(){S={q:nrm([.5,.5,.5,.5]),w:[0,0,0],t:0};bank=new Bank();hist=[];step=0;peakT=0;
+ S.e0=vn(errVec(TG,S.q));document.getElementById("sum").textContent="";run=true;document.getElementById("run").textContent="Pause"}
+function tick(){const aq=nrm(Qm(S.q,expM(rv(.001)))),aw=S.w.map((v,i)=>v+rv(.0001)[i]);
+ const c=control(aq,aw),[tx,ty,tz]=c.tq,[wx,wy,wz]=S.w;
+ const a=[(tx-(I[2]-I[1])*wy*wz)/I[0],(ty-(I[0]-I[2])*wz*wx)/I[1],(tz-(I[1]-I[0])*wx*wy)/I[2]];
+ S.q=nrm(Qm(S.q,expM(S.w.map(v=>v*DT))));S.w=S.w.map((v,i)=>v+DT*a[i]);S.t+=DT;step++;
+ peakT=Math.max(peakT,vn(c.tq));S.c=c;if(step%2==0)bank.add(S.q);
+ const e=vn(errVec(TG,S.q));S.e=e;if(step%5==0)hist.push([S.t,e*180/Math.PI])}
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function fit(c){if(!c.dataset.h)c.dataset.h=c.getAttribute("height");const r=devicePixelRatio||1,w=c.clientWidth,h=+c.dataset.h;c.style.height=h+'px';c.width=w*r;c.height=h*r;const x=c.getContext("2d");x.scale(r,r);return[x,w,h]}
+const V=[];for(const x of[-1,1])for(const y of[-1.2,1.2])for(const z of[-.8,.8])V.push([x,y,z]);
+const E=[[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]];
+function proj(v,w,h){const cx=Math.cos(.5),sx=Math.sin(.5),cy=Math.cos(.6),sy=Math.sin(.6);
+ let[x,y,z]=v;[y,z]=[y*cx-z*sx,y*sx+z*cx];[x,z]=[x*cy+z*sy,-x*sy+z*cy];const f=5/(5+z+1.5),s=Math.min(w,h)*.23;return[w/2+x*f*s,h/2-y*f*s]}
+const rot=(q,v)=>Qm(Qm(q,[0,...v]),cj(q)).slice(1);
+function draw3(){const[x,w,h]=fit(c3);const P=(q,v)=>proj(rot(q,v),w,h);
+ const box=(q,col,lw)=>{x.strokeStyle=col;x.lineWidth=lw;for(const[i,j]of E){const a=P(q,V[i]),b=P(q,V[j]);x.beginPath();x.moveTo(...a);x.lineTo(...b);x.stroke()}};
+ x.globalAlpha=.35;box(TG,css("--mut"),1);x.globalAlpha=1;box(S.q,css("--b"),1.8);
+ [[1,0,0,"--a"],[0,1,0,"--g"],[0,0,1,"--b"]].forEach(([a,b,c,k])=>{x.strokeStyle=css(k);x.lineWidth=2.5;x.beginPath();x.moveTo(...P(S.q,[0,0,0]));x.lineTo(...P(S.q,[a*1.5,b*1.5,c*1.5]));x.stroke()})}
+function drawP(){const[x,w,h]=fit(cp),L=v=>Math.log10(Math.max(v,1e-4)),lo=-4,hi=2.2,m=26;
+ const X=t=>m+(w-m-6)*t/25,Y=v=>h-14-(h-24)*(L(v)-lo)/(hi-lo);x.font="10px ui-monospace,monospace";x.fillStyle=css("--mut");
+ for(const d of[1e-3,.01,.1,1,10,100]){x.strokeStyle=css("--line");x.lineWidth=1;x.beginPath();x.moveTo(m,Y(d));x.lineTo(w-6,Y(d));x.stroke();x.fillText(d>=1?d:d,0,Y(d)+3)}
+ x.setLineDash([4,4]);x.strokeStyle=css("--a");for(const d of[85.9,28.6,5.73]){x.beginPath();x.moveTo(m,Y(d));x.lineTo(w-6,Y(d));x.stroke()}x.setLineDash([]);
+ x.fillText("0s",m,h-2);x.fillText("25s",w-24,h-2);x.strokeStyle=css("--b");x.lineWidth=1.8;x.beginPath();
+ hist.forEach(([t,e],i)=>i?x.lineTo(X(t),Y(e)):x.moveTo(X(t),Y(e)));x.stroke()}
+function drawB(){const[x,w,h]=fit(cb),cs=Math.min(w/64,h/16),cols=64;
+ for(let i=0;i<1024;i++){const px=(i%cols)*cs,py=Math.floor(i/cols)*cs;
+  if(i<bank.n){const q=bank.read(i),ang=2*Math.acos(Math.min(1,Math.abs(q[0])));x.globalAlpha=.2+.8*Math.min(1,ang/1.6);x.fillStyle=css("--b")}
+  else{x.globalAlpha=1;x.fillStyle=css("--line")}
+  x.fillRect(px+.5,py+.5,cs-1,cs-1)}
+ x.globalAlpha=1;x.strokeStyle=css("--a");x.lineWidth=2;const hp=bank.head;x.strokeRect((hp%cols)*cs,Math.floor(hp/cols)*cs,cs,cs);
+ const last=bank.n?bank.read((bank.head+1023)%1024):[0,0,0,0];
+ document.getElementById("bk").textContent=`slots used ${bank.n}/1024 · write ptr ${bank.head} · ${bank.n==1024?"wrapped (oldest overwritten)":"filling"} · q_bank_read(last) = [${last.map(v=>v.toFixed(3)).join(", ")}]`}
+const $=id=>document.getElementById(id),c3=$("c3"),cp=$("cp"),cb=$("cb");
+function frame(){if(run&&S.t<25-1e-9)for(let i=0;i<+$("spd").value*4&&S.t<25-1e-9;i++)tick();
+ if(S.t>=25-1e-9&&!$("sum").textContent){const f=S.e*180/Math.PI;$("sum").textContent=`DONE · final ${f.toFixed(4)}° · peak torque ${peakT.toFixed(1)} N·m · convergence ${(100*(1-S.e/S.e0)).toFixed(2)}%`}
+ const c=S.c||{reg:"-",r:0,kd:0};$("t").textContent=S.t.toFixed(2)+"s";$("reg").textContent=c.reg;$("e").textContent=S.e===undefined?(S.e0*180/Math.PI).toFixed(1)+"°":(S.e*180/Math.PI).toFixed(S.e<.01?4:2)+"°";
+ $("w").textContent=vn(S.w).toFixed(3);$("r").textContent=c.r.toFixed(2);$("kd").textContent=c.kd.toFixed(1);
+ draw3();drawP();drawB();requestAnimationFrame(frame)}
+$("run").onclick=()=>{run=!run;$("run").textContent=run?"Pause":"Run"};
+$("rst").onclick=reset;reset();frame();
+</script></main></body></html>
