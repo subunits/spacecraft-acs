@@ -22,16 +22,30 @@ canvas{width:100%;max-width:100%;display:block}.card{min-width:0;overflow:hidden
 .kv div{font-size:11px;color:var(--mut)}.kv b{display:block;font-size:15px;color:var(--fg);font-weight:600}
 #reg{color:var(--a)}
 .ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-button{font:inherit;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:8px 14px;min-height:40px}
+button,.tg,.sp{font:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;background:var(--card);color:var(--mut);border:1px solid var(--line);border-radius:4px;min-height:40px}
+button{color:var(--fg);padding:0 16px}
+.tg,.sp{display:flex;align-items:center;gap:10px;padding:0 12px;position:relative;cursor:pointer}
+em{font-style:normal;color:var(--fg);font-weight:600;margin-left:4px}
+.tg input{position:absolute;opacity:0;pointer-events:none}
+.tg i{width:34px;height:18px;border-radius:9px;background:var(--line);position:relative;flex:none;transition:background .15s}
+.tg i:after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--mut);transition:left .15s,background .15s}
+.tg input:checked+i{background:var(--a)}.tg input:checked+i:after{left:18px;background:var(--card)}
+.tg input:focus-visible+i{outline:2px solid var(--b);outline-offset:2px}
+.sp span{min-width:96px}
 button:active{border-color:var(--a)}
-input[type=range]{accent-color:var(--a);width:120px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:130px;height:24px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-8px;border-radius:50%;background:var(--a);border:3px solid var(--card)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--a);border:3px solid var(--card)}
 #sum{font-size:12px;color:var(--g);min-height:18px;margin-top:6px}
 .n{font-size:11px;color:var(--mut)}
 </style></head><body><main>
 <h1>HYBRID ACS <span>v7.21</span></h1>
 <p class="s">Flat JS port of Hybrid.hs + quaternion memory bank model. Everything runs in this one file.</p>
 <div class="ctl"><button id="run">Pause</button><button id="rst">Reset</button>
-<label class="n"><input id="ent" type="checkbox" checked> entropy</label><label class="n">speed <input id="spd" type="range" min="1" max="16" value="4"></label></div>
+<label class="tg"><input id="ent" type="checkbox" checked><i></i><span>Entropy <em id="ev">ON</em></span></label>
+<label class="sp"><span>Speed <em id="sv">9.6×</em></span><input id="spd" type="range" min="1" max="16" value="4"></label></div>
 <div class="row">
 <div class="card"><h2>Attitude (solid) vs target (dim)</h2><canvas id="c3" height="240"></canvas>
 <div class="kv"><div>time<b id="t">0</b></div><div>regime<b id="reg">-</b></div><div>error<b id="e">-</b></div>
@@ -101,5 +115,5 @@ function frame(){if(run&&S.t<25-1e-9)for(let i=0;i<+$("spd").value*4&&S.t<25-1e-
  $("w").textContent=vn(S.w).toFixed(3);$("r").textContent=c.r.toFixed(2);$("kd").textContent=c.kd.toFixed(1);$("db").textContent=vn(S.d).toFixed(3);$("bi").textContent=(vn(S.b)*1000).toFixed(2);
  draw3();drawP();drawB();requestAnimationFrame(frame)}
 $("run").onclick=()=>{run=!run;$("run").textContent=run?"Pause":"Run"};
-$("rst").onclick=reset;reset();frame();
+$("rst").onclick=reset;$("spd").oninput=()=>$("sv").textContent=($("spd").value*2.4).toFixed(1)+"×";$("ent").onchange=()=>{$("ev").textContent=$("ent").checked?"ON":"OFF";reset()};reset();frame();
 </script></main></body></html>
