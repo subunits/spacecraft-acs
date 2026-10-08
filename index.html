@@ -16,8 +16,8 @@ p.s{margin:0 0 14px;color:var(--mut);font-size:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px;margin-bottom:12px}
 h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:0 0 6px;font-weight:600}
 canvas{width:100%;max-width:100%;display:block}.card{min-width:0;overflow:hidden}
-.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
-@media(max-width:640px){.row{grid-template-columns:minmax(0,1fr)}}
+.row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}.row .card{flex:1 1 320px;min-width:0;margin:0;display:flex;flex-direction:column;justify-content:center}
+.card h2,.card .n,#sum{text-align:center}.kv div{text-align:center}
 @media(max-width:420px){.kv{grid-template-columns:repeat(2,1fr)}main{padding:10px}.sp span{min-width:84px}}
 .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 10px;margin-top:8px}
 .kv div{font-size:11px;color:var(--mut)}.kv b{display:block;font-size:15px;color:var(--fg);font-weight:600}
@@ -91,11 +91,12 @@ const E=[[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]
 function proj(v,w,h){const cx=Math.cos(.5),sx=Math.sin(.5),cy=Math.cos(.6),sy=Math.sin(.6);
  let[x,y,z]=v;[y,z]=[y*cx-z*sx,y*sx+z*cx];[x,z]=[x*cy+z*sy,-x*sy+z*cy];const f=5/(5+z+1.5),s=Math.min(w,h)*.23;return[w/2+x*f*s,h/2-y*f*s]}
 const rot=(q,v)=>Qm(Qm(q,[0,...v]),cj(q)).slice(1);
-function draw3(){const[x,w,h]=fit(c3);const P=(q,v)=>proj(rot(q,v),w,h);
+const H=c=>Math.round(Math.max(220,Math.min(340,c.clientWidth*.8)));
+function draw3(){c3.dataset.h=H(c3);const[x,w,h]=fit(c3);const P=(q,v)=>proj(rot(q,v),w,h);
  const box=(q,col,lw)=>{x.strokeStyle=col;x.lineWidth=lw;for(const[i,j]of E){const a=P(q,V[i]),b=P(q,V[j]);x.beginPath();x.moveTo(...a);x.lineTo(...b);x.stroke()}};
  x.globalAlpha=.35;box(TG,css("--mut"),1);x.globalAlpha=1;box(S.q,css("--b"),1.8);
  [[1,0,0,"--a"],[0,1,0,"--g"],[0,0,1,"--b"]].forEach(([a,b,c,k])=>{x.strokeStyle=css(k);x.lineWidth=2.5;x.beginPath();x.moveTo(...P(S.q,[0,0,0]));x.lineTo(...P(S.q,[a*1.5,b*1.5,c*1.5]));x.stroke()})}
-function drawP(){const[x,w,h]=fit(cp),L=v=>Math.log10(Math.max(v,1e-4)),lo=-4,hi=2.2,m=26;
+function drawP(){cp.dataset.h=H(cp);const[x,w,h]=fit(cp),L=v=>Math.log10(Math.max(v,1e-4)),lo=-4,hi=2.2,m=26;
  const X=t=>m+(w-m-6)*t/25,Y=v=>h-14-(h-24)*(L(v)-lo)/(hi-lo);x.font="10px ui-monospace,monospace";x.fillStyle=css("--mut");
  for(const d of[1e-3,.01,.1,1,10,100]){x.strokeStyle=css("--line");x.lineWidth=1;x.beginPath();x.moveTo(m,Y(d));x.lineTo(w-6,Y(d));x.stroke();x.fillText(d>=1?d:d,0,Y(d)+3)}
  x.setLineDash([4,4]);x.strokeStyle=css("--a");for(const d of[85.9,28.6,5.73]){x.beginPath();x.moveTo(m,Y(d));x.lineTo(w-6,Y(d));x.stroke()}x.setLineDash([]);
